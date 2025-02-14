@@ -32,6 +32,7 @@ async function loadData() {
             img: img || 'default.png',
             desc,
             loc,
+            rsvp,
             tags: tags ? tags.split(',').map(t => t.trim()) : []
         };
 
@@ -99,6 +100,15 @@ function initMap(events) {
             
             markers[event.name] = marker;
             marker.addTo(map);
+
+            // Add click handler to marker
+            marker.on('click', () => {
+                // Highlight corresponding timeline bar
+                d3.selectAll('.event-group rect')
+                    .style('opacity', 0.8);
+                d3.select(`rect[data-name="${event.name}"]`)
+                    .style('opacity', 1);
+            });
         }
     });
 }
@@ -112,11 +122,20 @@ function createPopupContent(event) {
             <p>${event.loc}</p>
             <p>${event.start.toLocaleTimeString()} - ${event.end.toLocaleTimeString()}</p>
             <p>${event.tags.join(', ')}</p>
+            <a href="${event.rsvp}" target="_blank" class="rsvp-button">RSVP</a>
         </div>
     `;
 }
 
 function initTimeline(events) {
+    // Add original index to each event before sorting
+    events.forEach((event, index) => {
+        event.originalIndex = index;
+    });
+    
+    // Sort events by start time (earliest first)
+    events.sort((a, b) => a.start - b.start);
+
     // Get container width for responsive sizing
     const containerWidth = document.querySelector('.timeline-container').clientWidth;
     const isMobile = containerWidth < 768;
@@ -147,15 +166,51 @@ function initTimeline(events) {
     // Create SVG for the header
     const headerSvg = headerContainer.append('svg')
         .attr('width', width + margin.left + margin.right)
-        .attr('height', margin.top + 40) // Height for time labels
+        .attr('height', margin.top + 50) // Height for time labels
         .append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+        .attr('transform', `translate(${margin.left},${margin.top - 10})`);
 
-    // Create scrollable container for timeline
+    // Add drag-to-scroll functionality
+    let isDragging = false;
+    let startX;
+    let scrollLeft;
+
     const timelineContainer = container.append('div')
         .attr('class', 'scrollable-timeline')
         .style('overflow-x', 'auto')
         .style('margin-top', '-1px'); // Adjust for border overlap
+
+    // Add mouse event listeners for drag scrolling
+    timelineContainer.on('mousedown', function(event) {
+        isDragging = true;
+        startX = event.pageX - timelineContainer.node().offsetLeft;
+        scrollLeft = timelineContainer.node().scrollLeft;
+        
+        // Change cursor to grabbing
+        timelineContainer.style('cursor', 'grabbing');
+    });
+
+    timelineContainer.on('mouseleave', function() {
+        isDragging = false;
+        timelineContainer.style('cursor', null);
+    });
+
+    timelineContainer.on('mouseup', function() {
+        isDragging = false;
+        timelineContainer.style('cursor', null);
+    });
+
+    timelineContainer.on('mousemove', function(event) {
+        if (!isDragging) return;
+        
+        event.preventDefault();
+        const x = event.pageX - timelineContainer.node().offsetLeft;
+        const walk = (x - startX) * 2; // Scroll speed multiplier
+        timelineContainer.node().scrollLeft = scrollLeft - walk;
+        
+        // Keep header in sync
+        headerContainer.node().scrollLeft = timelineContainer.node().scrollLeft;
+    });
 
     // Create SVG for the timeline (remove the bottom margin since axis is now in header)
     const svg = timelineContainer.append('svg')
@@ -184,7 +239,7 @@ function initTimeline(events) {
         .attr('x2', d => xScale(d))
         .attr('y1', 0)
         .attr('y2', height)
-        .style('stroke', '#ddd')
+        .style('stroke', 'var(--teal)')
         .style('stroke-width', 1)
         .style('opacity', 0.5);
 
@@ -196,34 +251,53 @@ function initTimeline(events) {
         .attr('class', 'event-group')
         .attr('transform', d => `translate(0,${yScale(d.name)})`);
 
-    // Add bars
+    // Add bars with updated interaction
     eventGroups.append('rect')
         .attr('x', d => xScale(d.start))
         .attr('y', 0)
         .attr('width', d => Math.max(xScale(d.end) - xScale(d.start), 30))
         .attr('height', yScale.bandwidth())
-        .style('fill', (d, i) => getFestivalColor(i, events.length))
+        .attr('data-name', d => d.name) // Add data attribute for easier selection
+        .style('fill', (d) => getFestivalColor(d.originalIndex, events.length))
         .style('opacity', 0.8)
         .on('mouseover', function(event, d) {
+            // Only change opacity on hover
             d3.select(this).style('opacity', 1);
-            if (markers[d.name]) {
-                markers[d.name].openPopup();
-            }
         })
         .on('mouseout', function(event, d) {
-            d3.select(this).style('opacity', 0.8);
+            // Reset opacity unless this bar is "selected"
+            if (!this.classList.contains('selected')) {
+                d3.select(this).style('opacity', 0.8);
+            }
+        })
+        .on('click', function(event, d) {
+            // Remove selection from all bars
+            d3.selectAll('.event-group rect')
+                .style('opacity', 0.8)
+                .classed('selected', false);
+            
+            // Select this bar
+            d3.select(this)
+                .style('opacity', 1)
+                .classed('selected', true);
+
+            // Show popup for corresponding marker
+            if (markers[d.name]) {
+                map.panTo(markers[d.name].getLatLng());
+                markers[d.name].openPopup();
+            }
         });
 
     // Add labels on bars
-    eventGroups.append('text')
+    const eventLabels = eventGroups.append('g')
+        .attr('class', 'event-label-group');
+
+    // Add event name
+    eventLabels.append('text')
         .attr('class', 'event-label')
         .attr('x', d => {
             const barWidth = xScale(d.end) - xScale(d.start);
-            // If bar is too narrow, place text after the bar
-            if (barWidth < 100) {
-                return xScale(d.end) + 5;
-            }
-            return xScale(d.start) + 5;
+            return barWidth < 100 ? xScale(d.end) + 5 : xScale(d.start) + 5;
         })
         .attr('y', yScale.bandwidth() / 2)
         .attr('dy', '0.35em')
@@ -236,17 +310,42 @@ function initTimeline(events) {
         .text(d => d.name);
 
     // Add time axis to the header
-    const xAxis = d3.axisTop(xScale) // Changed to axisTop
+    const xAxis = d3.axisTop(xScale)
         .ticks(d3.timeHour.every(1))
         .tickFormat(d3.timeFormat('%I:%M %p'));
     
-    headerSvg.append('g')
-        .call(xAxis)
-        .selectAll('text')
+    // Add the axis
+    const axis = headerSvg.append('g')
+        .attr('transform', `translate(0,${margin.top})`)
+        .call(xAxis);
+
+    // Style the time tick labels
+    axis.selectAll('.tick text')
         .style('text-anchor', 'end')
         .attr('dx', '-.8em')
-        .attr('dy', '0.5em')
+        .attr('dy', '1.4em')
         .attr('transform', 'rotate(-45)');
+
+    // Add date labels above specific hour ticks (6 AM, 12 PM, 6 PM)
+    axis.selectAll('.tick')
+        .filter(d => {
+            const hour = d.getHours();
+            return hour === 6 || hour === 12 || hour === 18;
+        })
+        .append('text')
+        .attr('class', 'date-label')
+        .attr('x', 0)
+        .attr('y', -15)
+        .style('text-anchor', 'middle')
+        .style('font-weight', 'bold')
+        .style('fill', '#666')
+        .text(d => {
+            const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            // const period = d.getHours() === 12 ? 'noon' : 
+            //               d.getHours() === 18 ? '6pm' : 
+            //               '6am';
+            return `${date}`;
+        });
 
     // Sync horizontal scrolling between header and timeline
     timelineContainer.on('scroll', function() {

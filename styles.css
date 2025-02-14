@@ -1,7 +1,7 @@
 :root {
     --teal: #00c8b0;
     --orange: #ff641e;
-    --cream: #f3e6ba;
+    --cream: #FFFF75;
     --dark: #1D3557;
 }
 
@@ -11,6 +11,7 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    background-color: var(--cream);
 }
 
 #map {
@@ -157,15 +158,17 @@ rect:hover {
 
 .timeline-header {
     margin-left: 20px; /* Match left margin */
-    border-bottom: 1px solid #ccc;
-    background: white;
+    border-bottom: 1px solid var(--teal);
+    /* background: white; */
     position: sticky;
     top: 0;
     z-index: 2;
+    background-color: var(--cream);
 }
 
 .timeline-header svg {
-    background: white;
+    /* background: white; */
+    background-color: var(--cream);
 }
 
 .scrollable-timeline {
@@ -174,6 +177,15 @@ rect:hover {
     height: calc(100% - 50px); /* Adjust for header height */
     position: relative;
     margin: 0 0 0 20px; /* Match left margin */
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.scrollable-timeline:active {
+    cursor: grabbing;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -214,4 +226,33 @@ rect:hover {
 
 .event-label[fill="#fff"] {
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.event-group rect {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.event-group rect.selected {
+    opacity: 1;
+}
+
+.date-label {
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.rsvp-button {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: var(--teal);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+.rsvp-button:hover {
+    background-color: var(--orange);
 }
