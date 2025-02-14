@@ -117,21 +117,54 @@ function createPopupContent(event) {
 }
 
 function initTimeline(events) {
-    const container = d3.select('#gantt');
-    const margin = {top: 20, right: 20, bottom: 30, left: 200};
-    const width = 2000 - margin.left - margin.right;
-    const height = events.length * 30;
+    // Get container width for responsive sizing
+    const containerWidth = document.querySelector('.timeline-container').clientWidth;
+    const isMobile = containerWidth < 768;
     
-    // Create SVG
-    const svg = container.append('svg')
+    const margin = {top: 20, right: 20, bottom: 30, left: 20}; // Reduced left margin since we don't need space for labels
+    const hoursToShow = isMobile ? 8 : 24;
+    const pixelsPerHour = (containerWidth - margin.left - margin.right) / hoursToShow;
+    
+    // Get the full date range from all events
+    const timeExtent = d3.extent(events.flatMap(d => [d.start, d.end]));
+    const totalHours = (timeExtent[1] - timeExtent[0]) / (1000 * 60 * 60);
+    const width = pixelsPerHour * totalHours;
+    const height = events.length * 40; // Increased height per bar to accommodate labels
+    
+    // Create main SVG container
+    const container = d3.select('#gantt');
+    
+    // Create header container for time axis
+    const headerContainer = container.append('div')
+        .attr('class', 'timeline-header')
+        .style('overflow-x', 'hidden')
+        .style('position', 'sticky')
+        .style('top', '0')
+        .style('background', 'white')
+        .style('z-index', '1')
+        .style('border-bottom', '1px solid #ccc');
+
+    // Create SVG for the header
+    const headerSvg = headerContainer.append('svg')
         .attr('width', width + margin.left + margin.right)
-        .attr('height', height + margin.top + margin.bottom)
+        .attr('height', margin.top + 40) // Height for time labels
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Create scales
-    const timeExtent = d3.extent(events.flatMap(d => [d.start, d.end]));
-    
+    // Create scrollable container for timeline
+    const timelineContainer = container.append('div')
+        .attr('class', 'scrollable-timeline')
+        .style('overflow-x', 'auto')
+        .style('margin-top', '-1px'); // Adjust for border overlap
+
+    // Create SVG for the timeline (remove the bottom margin since axis is now in header)
+    const svg = timelineContainer.append('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top)
+        .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Create scales using the full time range
     const xScale = d3.scaleTime()
         .domain(timeExtent)
         .range([0, width]);
@@ -139,22 +172,40 @@ function initTimeline(events) {
     const yScale = d3.scaleBand()
         .domain(events.map(d => d.name))
         .range([0, height])
-        .padding(0.2);
+        .padding(0.3); // Increased padding between bars
 
-    // Add timeline bars
-    svg.selectAll('rect')
+    // Add grid lines for hours
+    svg.selectAll('line.grid')
+        .data(xScale.ticks(d3.timeHour.every(1)))
+        .enter()
+        .append('line')
+        .attr('class', 'grid')
+        .attr('x1', d => xScale(d))
+        .attr('x2', d => xScale(d))
+        .attr('y1', 0)
+        .attr('y2', height)
+        .style('stroke', '#ddd')
+        .style('stroke-width', 1)
+        .style('opacity', 0.5);
+
+    // Create groups for each event bar
+    const eventGroups = svg.selectAll('.event-group')
         .data(events)
         .enter()
-        .append('rect')
+        .append('g')
+        .attr('class', 'event-group')
+        .attr('transform', d => `translate(0,${yScale(d.name)})`);
+
+    // Add bars
+    eventGroups.append('rect')
         .attr('x', d => xScale(d.start))
-        .attr('y', d => yScale(d.name))
+        .attr('y', 0)
         .attr('width', d => Math.max(xScale(d.end) - xScale(d.start), 30))
         .attr('height', yScale.bandwidth())
         .style('fill', (d, i) => getFestivalColor(i, events.length))
         .style('opacity', 0.8)
         .on('mouseover', function(event, d) {
             d3.select(this).style('opacity', 1);
-            // Highlight corresponding map marker if it exists
             if (markers[d.name]) {
                 markers[d.name].openPopup();
             }
@@ -163,34 +214,43 @@ function initTimeline(events) {
             d3.select(this).style('opacity', 0.8);
         });
 
-    // Add axes
-    const xAxis = d3.axisBottom(xScale)
+    // Add labels on bars
+    eventGroups.append('text')
+        .attr('class', 'event-label')
+        .attr('x', d => {
+            const barWidth = xScale(d.end) - xScale(d.start);
+            // If bar is too narrow, place text after the bar
+            if (barWidth < 100) {
+                return xScale(d.end) + 5;
+            }
+            return xScale(d.start) + 5;
+        })
+        .attr('y', yScale.bandwidth() / 2)
+        .attr('dy', '0.35em')
+        .style('fill', d => {
+            const barWidth = xScale(d.end) - xScale(d.start);
+            return barWidth < 100 ? '#000' : '#fff';
+        })
+        .style('font-size', '12px')
+        .style('font-weight', 'bold')
+        .text(d => d.name);
+
+    // Add time axis to the header
+    const xAxis = d3.axisTop(xScale) // Changed to axisTop
         .ticks(d3.timeHour.every(1))
         .tickFormat(d3.timeFormat('%I:%M %p'));
     
-    svg.append('g')
-        .attr('transform', `translate(0,${height})`)
+    headerSvg.append('g')
         .call(xAxis)
         .selectAll('text')
         .style('text-anchor', 'end')
         .attr('dx', '-.8em')
-        .attr('dy', '.15em')
+        .attr('dy', '0.5em')
         .attr('transform', 'rotate(-45)');
 
-    svg.append('g')
-        .call(d3.axisLeft(yScale));
-}
-
-// Initialize controls
-function initControls() {
-    const container = document.querySelector('.timeline-container');
-    
-    document.getElementById('scrollLeft').addEventListener('click', () => {
-        container.scrollLeft -= 200;
-    });
-    
-    document.getElementById('scrollRight').addEventListener('click', () => {
-        container.scrollLeft += 200;
+    // Sync horizontal scrolling between header and timeline
+    timelineContainer.on('scroll', function() {
+        headerContainer.node().scrollLeft = this.scrollLeft;
     });
 }
 
@@ -199,7 +259,6 @@ async function init() {
     const events = await loadData();
     initMap(events);
     initTimeline(events);
-    initControls();
 }
 
 init(); 
