@@ -81,11 +81,10 @@ rect:hover {
 }
 
 .festival-popup img {
-    width: 200px;
+    width: 150px;
     height: 150px;
     object-fit: cover;
-    margin-bottom: 10px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 2px solid var(--teal);
 }
 
@@ -255,4 +254,15 @@ rect:hover {
 
 .rsvp-button:hover {
     background-color: var(--orange);
+}
+
+.location-link {
+    color: var(--teal);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.location-link:hover {
+    color: var(--orange);
+    text-decoration: underline;
 }

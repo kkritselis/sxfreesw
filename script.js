@@ -114,13 +114,21 @@ function initMap(events) {
 }
 
 function createPopupContent(event) {
+    const formatTime = (date) => date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+    });
+
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.loc)}`;
+
     return `
         <div class="festival-popup">
             <img src="img/${event.img}" alt="${event.name}">
             <h3>${event.name}</h3>
             <p>${event.desc}</p>
-            <p>${event.loc}</p>
-            <p>${event.start.toLocaleTimeString()} - ${event.end.toLocaleTimeString()}</p>
+            <p><a href="${googleMapsUrl}" target="_blank" class="location-link">${event.loc}</a></p>
+            <p>${formatTime(event.start)} - ${formatTime(event.end)}</p>
             <p>${event.tags.join(', ')}</p>
             <a href="${event.rsvp}" target="_blank" class="rsvp-button">RSVP</a>
         </div>
