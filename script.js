@@ -320,7 +320,7 @@ function initTimeline(events) {
     // Add time axis to the header
     const xAxis = d3.axisTop(xScale)
         .ticks(d3.timeHour.every(1))
-        .tickFormat(d3.timeFormat('%I:%M %p'));
+        .tickFormat(d3.timeFormat('%-I %p'));
     
     // Add the axis
     const axis = headerSvg.append('g')
@@ -330,8 +330,8 @@ function initTimeline(events) {
     // Style the time tick labels
     axis.selectAll('.tick text')
         .style('text-anchor', 'end')
-        .attr('dx', '-.8em')
-        .attr('dy', '1.4em')
+        .attr('dx', '-3.5em')
+        .attr('dy', '-1em')
         .attr('transform', 'rotate(-45)');
 
     // Add date labels above specific hour ticks (6 AM, 12 PM, 6 PM)

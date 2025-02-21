@@ -1,8 +1,13 @@
 :root {
-    --teal: #00c8b0;
+    --teal: #264653;
     --orange: #ff641e;
-    --cream: #FFFF75;
+    --cream: #F4F1DE;
     --dark: #1D3557;
+    --primary: #2A9D8F;
+    --secondary: #E76F51;
+    --background: #F4F1DE;
+    --text: #264653;
+    --accent: #E9C46A;
 }
 
 body {
