@@ -24,21 +24,35 @@ body {
     padding: 10px;
     background-color: var(--teal);
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    position: relative;
+    overflow: hidden; /* Hide overflow but don't enable scrolling on the container */
+    white-space: nowrap;
 }
 
 .filter-title {
     color: white;
     font-weight: bold;
     margin-right: 10px;
+    position: absolute;
+    left: 10px;
 }
 
 #day-filters {
-    display: flex;
-    flex-wrap: wrap;
+    display: inline-flex;
     gap: 8px;
+    padding: 0 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    padding: 0 40px; /* Add padding for the buttons */
+    width: 100%;
+}
+
+#day-filters::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .day-filter {
@@ -51,6 +65,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
+    white-space: nowrap;
 }
 
 .day-filter.active {
@@ -58,9 +73,17 @@ body {
     color: var(--dark);
 }
 
-.day-filter:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+/* Modify hover effect to not interfere with scrolling */
+@media (hover: hover) {
+    .day-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    .tag-filter:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
 }
 
 #map {
@@ -185,11 +208,6 @@ rect:hover {
         box-sizing: border-box;
         height: 60vh;
         width: 100%;
-        border: 3px inset var(--orange);
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-        border-bottom-left-radius: 25px;
-        border-bottom-right-radius: 25px;
         margin: 0;
     }
 } 
@@ -321,17 +339,28 @@ rect:hover {
     background-color: var(--teal);
     padding: 10px;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
     border-top: 1px solid var(--teal);
     border-bottom: 1px solid var(--teal);
+    position: relative;
+    overflow: hidden; /* Hide overflow but don't enable scrolling on the container */
+    white-space: nowrap;
 }
 
 #tag-filters {
-    display: flex;
-    flex-wrap: wrap;
+    display: inline-flex;
     gap: 8px;
+    padding: 0 40px; /* Add padding for the buttons */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    width: 100%;
+}
+
+#tag-filters::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 .tag-filter {
@@ -344,11 +373,7 @@ rect:hover {
     cursor: pointer;
     transition: all 0.2s ease;
     user-select: none;
-}
-
-.tag-filter:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    white-space: nowrap;
 }
 
 .tag-filter.active {
@@ -357,17 +382,38 @@ rect:hover {
 }
 
 /* Add a title for the tag filters with proper styling */
-/* #tag-filter-container::before {
-    content: "Filter by Tag:";
+#tag-filter-container::before {
     color: white;
     font-weight: bold;
-    margin-right: 10px;
-} */
+    position: absolute;
+    left: 10px;
+    display: none; /* Hide by default, show on larger screens */
+}
+
+@media (min-width: 768px) {
+    #tag-filter-container::before {
+        display: block;
+        left: 45px; /* Move label to accommodate scroll button */
+    }
+    
+    #day-filters, #tag-filters {
+        padding: 0 40px 0 100px; /* Add space for the label on larger screens */
+    }
+}
+
+/* Remove gradient indicators since we have buttons now */
+#filter-container::after, #tag-filter-container::after {
+    display: none;
+}
 
 /* Responsive adjustments */
 @media (max-width: 968px) {
-    #tag-filter-container {
+    #tag-filter-container, #filter-container {
         padding: 8px 10px;
+    }
+    
+    #day-filters, #tag-filters {
+        padding: 0 40px; /* Keep space for buttons */
     }
     
     .tag-filter {
@@ -377,10 +423,6 @@ rect:hover {
         border: 1px solid var(--cream);
     }
 
-    #day-filters {
-        gap: 0px;
-    }
-    
     .day-filter {
         border: 1px solid var(--cream);
         border-radius: 0px;
@@ -390,14 +432,66 @@ rect:hover {
         cursor: pointer;
         user-select: none;
     }
+    
+    /* Make scroll buttons smaller on mobile */
+    .scroll-button {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
+}
 
-    #tag-filters {
-        gap: 0px;
+/* Add touch-specific styles */
+@media (pointer: coarse) {
+    /* Styles for touch devices */
+    .day-filter:hover, .tag-filter:hover {
+        transform: none;
+        box-shadow: none;
     }
     
-    #tag-filter-container::before {
-        display: block;
-        width: 100%;
-        margin-bottom: 5px;
+    /* Add active state for touch feedback */
+    .day-filter:active, .tag-filter:active {
+        opacity: 0.8;
     }
+    
+    /* Make scroll buttons more prominent on touch devices */
+    .scroll-button {
+        opacity: 0.9;
+    }
+}
+
+/* Add scroll button styles */
+.scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    border: none;
+    color: var(--teal);
+    font-weight: bold;
+    font-size: 18px;
+    transition: background-color 0.2s;
+}
+
+.scroll-button:hover {
+    background-color: white;
+}
+
+.scroll-button:active {
+    background-color: var(--accent);
+}
+
+.scroll-left {
+    left: 0px;
+}
+
+.scroll-right {
+    right: 0px;
 }

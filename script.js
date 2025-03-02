@@ -585,6 +585,75 @@ function initTimeline(events) {
     });
 }
 
+// Add scroll button functionality
+function initScrollButtons() {
+    // Day filter scroll buttons
+    const dayContainer = document.getElementById('day-filters');
+    const dayScrollLeft = document.getElementById('day-scroll-left');
+    const dayScrollRight = document.getElementById('day-scroll-right');
+    
+    // Tag filter scroll buttons
+    const tagContainer = document.getElementById('tag-filters');
+    const tagScrollLeft = document.getElementById('tag-scroll-left');
+    const tagScrollRight = document.getElementById('tag-scroll-right');
+    
+    // Scroll amount (pixels)
+    const scrollAmount = 150;
+    
+    // Day filter scroll handlers
+    dayScrollLeft.addEventListener('click', () => {
+        dayContainer.scrollBy({
+            left: -scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+    
+    dayScrollRight.addEventListener('click', () => {
+        dayContainer.scrollBy({
+            left: scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+    
+    // Tag filter scroll handlers
+    tagScrollLeft.addEventListener('click', () => {
+        tagContainer.scrollBy({
+            left: -scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+    
+    tagScrollRight.addEventListener('click', () => {
+        tagContainer.scrollBy({
+            left: scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+    
+    // Update button visibility based on scroll position
+    function updateScrollButtonVisibility() {
+        // Day filter buttons
+        dayScrollLeft.style.opacity = dayContainer.scrollLeft > 0 ? '1' : '0.3';
+        dayScrollRight.style.opacity = 
+            dayContainer.scrollLeft < (dayContainer.scrollWidth - dayContainer.clientWidth - 5) ? '1' : '0.3';
+        
+        // Tag filter buttons
+        tagScrollLeft.style.opacity = tagContainer.scrollLeft > 0 ? '1' : '0.3';
+        tagScrollRight.style.opacity = 
+            tagContainer.scrollLeft < (tagContainer.scrollWidth - tagContainer.clientWidth - 5) ? '1' : '0.3';
+    }
+    
+    // Add scroll event listeners to update button visibility
+    dayContainer.addEventListener('scroll', updateScrollButtonVisibility);
+    tagContainer.addEventListener('scroll', updateScrollButtonVisibility);
+    
+    // Initial visibility update
+    updateScrollButtonVisibility();
+    
+    // Update on window resize
+    window.addEventListener('resize', updateScrollButtonVisibility);
+}
+
 // Main initialization
 async function init() {
     const events = await loadData();
@@ -592,6 +661,7 @@ async function init() {
     // Initialize filters first
     initDayFilters(events);
     initTagFilters(events);
+    initScrollButtons(); // Initialize scroll buttons
     
     // Then initialize map and timeline with filtered events
     initMap(events);
