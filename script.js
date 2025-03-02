@@ -1,6 +1,8 @@
 let map;
 let markers = {};
 let activePopup = null;
+let dayFilters = {}; // Store active state of day filters
+let tagFilters = {}; // Store active state of tag filters
 
 async function loadData() {
     const response = await fetch('data.tsv');
@@ -27,6 +29,7 @@ async function loadData() {
         // Create the event object
         const event = {
             name,
+            date,
             start: startDateTime,
             end: endDateTime,
             img: img || 'default.png',
@@ -44,6 +47,181 @@ async function loadData() {
 
         return event;
     }).filter(event => event !== null);
+}
+
+// Initialize day filters
+function initDayFilters(events) {
+    // Get unique dates from events
+    const uniqueDates = [...new Set(events.map(event => event.date))];
+    
+    // Sort dates chronologically
+    uniqueDates.sort((a, b) => new Date(a) - new Date(b));
+    
+    // Load saved filter states from localStorage
+    let savedFilters = {};
+    try {
+        const saved = localStorage.getItem('dayFilters');
+        if (saved) {
+            savedFilters = JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('Error loading saved filters:', e);
+    }
+    
+    // Create filter buttons
+    const filterContainer = document.getElementById('day-filters');
+    
+    uniqueDates.forEach(date => {
+        // Format date for display (e.g., "Mar 7")
+        const displayDate = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        // Create button
+        const button = document.createElement('div');
+        button.className = 'day-filter';
+        button.textContent = displayDate;
+        button.dataset.date = date;
+        
+        // Set initial state (default to active if not in saved filters)
+        const isActive = savedFilters[date] !== undefined ? savedFilters[date] : true;
+        if (isActive) {
+            button.classList.add('active');
+        }
+        
+        // Store filter state
+        dayFilters[date] = isActive;
+        
+        // Add click handler
+        button.addEventListener('click', () => {
+            // Toggle active state
+            const newState = !dayFilters[date];
+            dayFilters[date] = newState;
+            
+            if (newState) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('dayFilters', JSON.stringify(dayFilters));
+            
+            // Update map and timeline
+            updateVisibility(events);
+        });
+        
+        filterContainer.appendChild(button);
+    });
+}
+
+// Initialize tag filters
+function initTagFilters(events) {
+    // Get unique tags from all events
+    const allTags = events.flatMap(event => event.tags);
+    const uniqueTags = [...new Set(allTags)].filter(tag => tag); // Remove empty tags
+    
+    // Sort tags alphabetically
+    uniqueTags.sort();
+    
+    // Load saved filter states from localStorage
+    let savedFilters = {};
+    try {
+        const saved = localStorage.getItem('tagFilters');
+        if (saved) {
+            savedFilters = JSON.parse(saved);
+        }
+    } catch (e) {
+        console.error('Error loading saved tag filters:', e);
+    }
+    
+    // Create filter buttons
+    const filterContainer = document.getElementById('tag-filters');
+    
+    uniqueTags.forEach(tag => {
+        // Create button
+        const button = document.createElement('div');
+        button.className = 'tag-filter';
+        button.textContent = tag;
+        button.dataset.tag = tag;
+        
+        // Set initial state (default to active if not in saved filters)
+        const isActive = savedFilters[tag] !== undefined ? savedFilters[tag] : true;
+        if (isActive) {
+            button.classList.add('active');
+        }
+        
+        // Store filter state
+        tagFilters[tag] = isActive;
+        
+        // Add click handler
+        button.addEventListener('click', () => {
+            // Toggle active state
+            const newState = !tagFilters[tag];
+            tagFilters[tag] = newState;
+            
+            if (newState) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('tagFilters', JSON.stringify(tagFilters));
+            
+            // Update map and timeline
+            updateVisibility(events);
+        });
+        
+        filterContainer.appendChild(button);
+    });
+}
+
+// Update visibility of events based on filters
+function updateVisibility(events) {
+    // Filter events by both day and tag
+    const filteredEvents = events.filter(event => {
+        // Check if day is active
+        const dayActive = dayFilters[event.date];
+        
+        // Check if at least one tag is active (if event has tags)
+        let tagActive = true;
+        if (event.tags && event.tags.length > 0) {
+            tagActive = event.tags.some(tag => tagFilters[tag]);
+        }
+        
+        return dayActive && tagActive;
+    });
+    
+    // Update map markers
+    Object.keys(markers).forEach(name => {
+        const event = events.find(e => e.name === name);
+        if (event) {
+            const dayActive = dayFilters[event.date];
+            let tagActive = true;
+            if (event.tags && event.tags.length > 0) {
+                tagActive = event.tags.some(tag => tagFilters[tag]);
+            }
+            
+            const isVisible = dayActive && tagActive;
+            const marker = markers[name];
+            
+            if (isVisible) {
+                if (!map.hasLayer(marker)) {
+                    marker.addTo(map);
+                }
+            } else {
+                if (map.hasLayer(marker)) {
+                    map.removeLayer(marker);
+                }
+            }
+        }
+    });
+    
+    // Redraw timeline with filtered events
+    // Clear existing timeline
+    d3.select('#gantt').html('');
+    
+    // Reinitialize timeline with filtered events
+    initTimeline(filteredEvents);
 }
 
 // Add this function to assign colors based on chronological order
@@ -99,7 +277,11 @@ function initMap(events) {
             }).bindPopup(createPopupContent(event));
             
             markers[event.name] = marker;
-            marker.addTo(map);
+            
+            // Only add to map if day is active
+            if (dayFilters[event.date]) {
+                marker.addTo(map);
+            }
 
             // Add click handler to marker
             marker.on('click', () => {
@@ -156,7 +338,53 @@ function initTimeline(events) {
     const timeExtent = d3.extent(events.flatMap(d => [d.start, d.end]));
     const totalHours = (timeExtent[1] - timeExtent[0]) / (1000 * 60 * 60);
     const width = pixelsPerHour * totalHours;
-    const height = events.length * 40; // Increased height per bar to accommodate labels
+    
+    // Group events by date to organize them better
+    const eventsByDate = {};
+    events.forEach(event => {
+        const dateKey = event.start.toLocaleDateString();
+        if (!eventsByDate[dateKey]) {
+            eventsByDate[dateKey] = [];
+        }
+        eventsByDate[dateKey].push(event);
+    });
+    
+    // Create a flattened array of events with row assignments
+    const rowAssignments = [];
+    Object.values(eventsByDate).forEach(dateEvents => {
+        // Sort events by start time within each date
+        dateEvents.sort((a, b) => a.start - b.start);
+        
+        // Assign rows efficiently to avoid overlaps
+        const rows = [];
+        dateEvents.forEach(event => {
+            // Find the first row where this event can fit
+            let rowIndex = 0;
+            while (true) {
+                if (!rows[rowIndex]) {
+                    rows[rowIndex] = [];
+                }
+                
+                // Check if this event overlaps with any event in this row
+                const canFit = !rows[rowIndex].some(existingEvent => {
+                    return (event.start < existingEvent.end && event.end > existingEvent.start);
+                });
+                
+                if (canFit) {
+                    rows[rowIndex].push(event);
+                    event.rowIndex = rowIndex;
+                    rowAssignments.push(event);
+                    break;
+                }
+                
+                rowIndex++;
+            }
+        });
+    });
+    
+    // Calculate height based on the number of rows needed
+    const rowHeight = 40;
+    const height = Math.max(...rowAssignments.map(e => e.rowIndex)) * rowHeight + rowHeight;
     
     // Create main SVG container
     const container = d3.select('#gantt');
@@ -232,10 +460,9 @@ function initTimeline(events) {
         .domain(timeExtent)
         .range([0, width]);
 
-    const yScale = d3.scaleBand()
-        .domain(events.map(d => d.name))
-        .range([0, height])
-        .padding(0.3); // Increased padding between bars
+    const yScale = d3.scaleLinear()
+        .domain([0, Math.max(...rowAssignments.map(e => e.rowIndex)) + 1])
+        .range([0, height]);
 
     // Add grid lines for hours
     svg.selectAll('line.grid')
@@ -253,18 +480,18 @@ function initTimeline(events) {
 
     // Create groups for each event bar
     const eventGroups = svg.selectAll('.event-group')
-        .data(events)
+        .data(rowAssignments)
         .enter()
         .append('g')
         .attr('class', 'event-group')
-        .attr('transform', d => `translate(0,${yScale(d.name)})`);
+        .attr('transform', d => `translate(0,${yScale(d.rowIndex)})`);
 
     // Add bars with updated interaction
     eventGroups.append('rect')
         .attr('x', d => xScale(d.start))
         .attr('y', 0)
         .attr('width', d => Math.max(xScale(d.end) - xScale(d.start), 30))
-        .attr('height', yScale.bandwidth())
+        .attr('height', rowHeight * 0.8)
         .attr('data-name', d => d.name) // Add data attribute for easier selection
         .style('fill', (d) => getFestivalColor(d.originalIndex, events.length))
         .style('opacity', 0.8)
@@ -307,7 +534,7 @@ function initTimeline(events) {
             const barWidth = xScale(d.end) - xScale(d.start);
             return barWidth < 100 ? xScale(d.end) + 5 : xScale(d.start) + 5;
         })
-        .attr('y', yScale.bandwidth() / 2)
+        .attr('y', rowHeight * 0.4)
         .attr('dy', '0.35em')
         .style('fill', d => {
             const barWidth = xScale(d.end) - xScale(d.start);
@@ -349,9 +576,6 @@ function initTimeline(events) {
         .style('fill', '#666')
         .text(d => {
             const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            // const period = d.getHours() === 12 ? 'noon' : 
-            //               d.getHours() === 18 ? '6pm' : 
-            //               '6am';
             return `${date}`;
         });
 
@@ -364,8 +588,29 @@ function initTimeline(events) {
 // Main initialization
 async function init() {
     const events = await loadData();
+    
+    // Initialize filters first
+    initDayFilters(events);
+    initTagFilters(events);
+    
+    // Then initialize map and timeline with filtered events
     initMap(events);
-    initTimeline(events);
+    
+    // Get filtered events based on initial filter states
+    const filteredEvents = events.filter(event => {
+        // Check day filter
+        const dayActive = dayFilters[event.date];
+        
+        // Check tag filter (if event has tags)
+        let tagActive = true;
+        if (event.tags && event.tags.length > 0) {
+            tagActive = event.tags.some(tag => tagFilters[tag]);
+        }
+        
+        return dayActive && tagActive;
+    });
+    
+    initTimeline(filteredEvents);
 }
 
 init(); 

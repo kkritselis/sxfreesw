@@ -19,12 +19,56 @@ body {
     background-color: var(--cream);
 }
 
+/* Day filter styles */
+#filter-container {
+    padding: 10px;
+    background-color: var(--teal);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-title {
+    color: white;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+#day-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.day-filter {
+    background-color: var(--cream);
+    color: var(--teal);
+    border: 2px solid var(--cream);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.day-filter.active {
+    background-color: var(--accent);
+    color: var(--dark);
+}
+
+.day-filter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
 #map {
-    height: 50vh;
+    height: 70vh;
 }
 
 #timeline {
-    height: 50vh;
+    height: 30vh;
     display: flex;
     flex-direction: column;
 }
@@ -270,4 +314,90 @@ rect:hover {
 .location-link:hover {
     color: var(--orange);
     text-decoration: underline;
+}
+
+/* Add styles for tag filters */
+#tag-filter-container {
+    background-color: var(--teal);
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--teal);
+    border-bottom: 1px solid var(--teal);
+}
+
+#tag-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag-filter {
+    background-color: var(--cream);
+    color: var(--teal);
+    border: 2px solid var(--cream);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.tag-filter:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.tag-filter.active {
+    background-color: var(--accent);
+    color: var(--dark);
+}
+
+/* Add a title for the tag filters with proper styling */
+/* #tag-filter-container::before {
+    content: "Filter by Tag:";
+    color: white;
+    font-weight: bold;
+    margin-right: 10px;
+} */
+
+/* Responsive adjustments */
+@media (max-width: 968px) {
+    #tag-filter-container {
+        padding: 8px 10px;
+    }
+    
+    .tag-filter {
+        padding: 4px 10px;
+        font-size: 10px;
+        border-radius: 0px;
+        border: 1px solid var(--cream);
+    }
+
+    #day-filters {
+        gap: 0px;
+    }
+    
+    .day-filter {
+        border: 1px solid var(--cream);
+        border-radius: 0px;
+        padding: 4px 10px;
+        font-weight: bold;
+        font-size: 10px;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    #tag-filters {
+        gap: 0px;
+    }
+    
+    #tag-filter-container::before {
+        display: block;
+        width: 100%;
+        margin-bottom: 5px;
+    }
 }
