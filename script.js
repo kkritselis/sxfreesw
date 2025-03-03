@@ -231,8 +231,10 @@ function getFestivalColor(index, totalFestivals) {
 }
 
 function initMap(events) {
-    // Center map on Austin
-    map = L.map('map').setView([30.2672, -97.7431], 13);
+    // Center map on Austin with zoom controls disabled
+    map = L.map('map', {
+        zoomControl: false
+    }).setView([30.2672, -97.7431], 13);
     
     // Custom map style with teal water
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {

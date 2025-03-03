@@ -495,3 +495,16 @@ rect:hover {
 .scroll-right {
     right: 0px;
 }
+
+.map-disclaimer {
+    position: absolute;
+    bottom: 2px;
+    left: 4px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 2px 2px;
+    border-radius: 2px;
+    font-size: 10px;
+    color: #666;
+    pointer-events: none;
+}
