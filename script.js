@@ -227,7 +227,7 @@ function updateVisibility(events) {
 // Add this function to assign colors based on chronological order
 function getFestivalColor(index, totalFestivals) {
     const hue = (360 / totalFestivals) * index;
-    return `hsl(${hue}, 85%, 50%)`; // Using 85% saturation for slightly softer colors
+    return `hsl(${hue}, 100%, 30%)`; // Fixed saturation at 100% and lightness at 30%
 }
 
 function initMap(events) {
@@ -304,14 +304,17 @@ function createPopupContent(event) {
         hour12: true 
     });
 
-    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.loc)}`;
+    // Only create Google Maps link if location exists
+    const locationHtml = event.loc ? 
+        `<p><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.loc)}" target="_blank" class="location-link">${event.loc}</a></p>` :
+        '';
 
     return `
         <div class="festival-popup">
             <img src="img/${event.img}" alt="${event.name}">
             <h3>${event.name}</h3>
             <p>${event.desc}</p>
-            <p><a href="${googleMapsUrl}" target="_blank" class="location-link">${event.loc}</a></p>
+            ${locationHtml}
             <p>${formatTime(event.start)} - ${formatTime(event.end)}</p>
             <p>${event.tags.join(', ')}</p>
             <a href="${event.rsvp}" target="_blank" class="rsvp-button">RSVP</a>
@@ -508,6 +511,8 @@ function initTimeline(events) {
             }
         })
         .on('click', function(event, d) {
+            event.stopPropagation(); // Stop event from bubbling up
+            
             // Remove selection from all bars
             d3.selectAll('.event-group rect')
                 .style('opacity', 0.8)
@@ -518,10 +523,46 @@ function initTimeline(events) {
                 .style('opacity', 1)
                 .classed('selected', true);
 
-            // Show popup for corresponding marker
+            // Remove any existing timeline popups
+            d3.selectAll('.timeline-popup').remove();
+
+            // Close any open map popups
+            map.closePopup();
+
+            // If there's a marker, show its popup
             if (markers[d.name]) {
                 map.panTo(markers[d.name].getLatLng());
                 markers[d.name].openPopup();
+            } else {
+                // For events without location data, create a popup in the timeline
+                const popupContent = createPopupContent(d);
+                
+                // Get the position of the clicked bar
+                const rect = this.getBoundingClientRect();
+                
+                // Create and position the popup
+                const popup = d3.select('body')
+                    .append('div')
+                    .attr('class', 'timeline-popup')
+                    .style('position', 'fixed')
+                    .style('left', `${rect.left + rect.width/2}px`)
+                    .style('top', `${rect.top - 10}px`)
+                    .style('transform', 'translate(-50%, -100%)')
+                    .html(popupContent);
+                
+                // Add click handler to close popup when clicking outside
+                const closePopup = (e) => {
+                    const clickedPopup = e.target.closest('.timeline-popup');
+                    if (!clickedPopup && e.target !== this) {
+                        popup.remove();
+                        document.removeEventListener('click', closePopup);
+                    }
+                };
+                
+                // Delay adding the click listener to prevent immediate closure
+                requestAnimationFrame(() => {
+                    document.addEventListener('click', closePopup);
+                });
             }
         });
 
@@ -532,16 +573,10 @@ function initTimeline(events) {
     // Add event name
     eventLabels.append('text')
         .attr('class', 'event-label')
-        .attr('x', d => {
-            const barWidth = xScale(d.end) - xScale(d.start);
-            return barWidth < 100 ? xScale(d.end) + 5 : xScale(d.start) + 5;
-        })
+        .attr('x', d => xScale(d.start) + 5) // Always position text at start of bar with small padding
         .attr('y', rowHeight * 0.4)
         .attr('dy', '0.35em')
-        .style('fill', d => {
-            const barWidth = xScale(d.end) - xScale(d.start);
-            return barWidth < 100 ? '#000' : '#fff';
-        })
+        .style('fill', '#fff') // Always use white text
         .style('font-size', '12px')
         .style('font-weight', 'bold')
         .text(d => d.name);
