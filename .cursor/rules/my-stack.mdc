@@ -1,0 +1,11 @@
+---
+description: This is the project's tech stack
+globs: 
+alwaysApply: false
+---
+
+# Tech Stack
+
+- HTML/CSS/JS for the frontend
+- NODE for the backend, if necessary
+- mySql for the DB if necessary

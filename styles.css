@@ -87,11 +87,11 @@ body {
 }
 
 #map {
-    height: 70vh;
+    height: 60vh;
 }
 
 #timeline {
-    height: 30vh;
+    height: 40vh;
     display: flex;
     flex-direction: column;
 }

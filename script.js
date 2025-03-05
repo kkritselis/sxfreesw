@@ -2,7 +2,7 @@ let map;
 let markers = {};
 let activePopup = null;
 let dayFilters = {}; // Store active state of day filters
-let tagFilters = {}; // Store active state of tag filters
+// let tagFilters = {}; // Store active state of tag filters
 
 async function loadData() {
     const response = await fetch('data.tsv');
@@ -114,7 +114,7 @@ function initDayFilters(events) {
 }
 
 // Initialize tag filters
-function initTagFilters(events) {
+/*function initTagFilters(events) {
     // Get unique tags from all events
     const allTags = events.flatMap(event => event.tags);
     const uniqueTags = [...new Set(allTags)].filter(tag => tag); // Remove empty tags
@@ -173,7 +173,7 @@ function initTagFilters(events) {
         
         filterContainer.appendChild(button);
     });
-}
+}*/
 
 // Update visibility of events based on filters
 function updateVisibility(events) {
@@ -183,12 +183,13 @@ function updateVisibility(events) {
         const dayActive = dayFilters[event.date];
         
         // Check if at least one tag is active (if event has tags)
-        let tagActive = true;
+        /*let tagActive = true;
         if (event.tags && event.tags.length > 0) {
             tagActive = event.tags.some(tag => tagFilters[tag]);
-        }
+        }*/
         
-        return dayActive && tagActive;
+        //return dayActive && tagActive;
+        return dayActive;
     });
     
     // Update map markers
@@ -196,12 +197,13 @@ function updateVisibility(events) {
         const event = events.find(e => e.name === name);
         if (event) {
             const dayActive = dayFilters[event.date];
-            let tagActive = true;
+            /*let tagActive = true;
             if (event.tags && event.tags.length > 0) {
                 tagActive = event.tags.some(tag => tagFilters[tag]);
-            }
+            }*/
             
-            const isVisible = dayActive && tagActive;
+            //const isVisible = dayActive && tagActive;
+            const isVisible = dayActive;
             const marker = markers[name];
             
             if (isVisible) {
@@ -630,9 +632,9 @@ function initScrollButtons() {
     const dayScrollRight = document.getElementById('day-scroll-right');
     
     // Tag filter scroll buttons
-    const tagContainer = document.getElementById('tag-filters');
+    /*const tagContainer = document.getElementById('tag-filters');
     const tagScrollLeft = document.getElementById('tag-scroll-left');
-    const tagScrollRight = document.getElementById('tag-scroll-right');
+    const tagScrollRight = document.getElementById('tag-scroll-right');*/
     
     // Scroll amount (pixels)
     const scrollAmount = 150;
@@ -653,7 +655,7 @@ function initScrollButtons() {
     });
     
     // Tag filter scroll handlers
-    tagScrollLeft.addEventListener('click', () => {
+    /*tagScrollLeft.addEventListener('click', () => {
         tagContainer.scrollBy({
             left: -scrollAmount,
             behavior: 'smooth'
@@ -665,7 +667,7 @@ function initScrollButtons() {
             left: scrollAmount,
             behavior: 'smooth'
         });
-    });
+    });*/
     
     // Update button visibility based on scroll position
     function updateScrollButtonVisibility() {
@@ -675,14 +677,14 @@ function initScrollButtons() {
             dayContainer.scrollLeft < (dayContainer.scrollWidth - dayContainer.clientWidth - 5) ? '1' : '0.3';
         
         // Tag filter buttons
-        tagScrollLeft.style.opacity = tagContainer.scrollLeft > 0 ? '1' : '0.3';
+        /*tagScrollLeft.style.opacity = tagContainer.scrollLeft > 0 ? '1' : '0.3';
         tagScrollRight.style.opacity = 
-            tagContainer.scrollLeft < (tagContainer.scrollWidth - tagContainer.clientWidth - 5) ? '1' : '0.3';
+            tagContainer.scrollLeft < (tagContainer.scrollWidth - tagContainer.clientWidth - 5) ? '1' : '0.3';*/
     }
     
     // Add scroll event listeners to update button visibility
     dayContainer.addEventListener('scroll', updateScrollButtonVisibility);
-    tagContainer.addEventListener('scroll', updateScrollButtonVisibility);
+    //tagContainer.addEventListener('scroll', updateScrollButtonVisibility);
     
     // Initial visibility update
     updateScrollButtonVisibility();
@@ -697,7 +699,7 @@ async function init() {
     
     // Initialize filters first
     initDayFilters(events);
-    initTagFilters(events);
+    //initTagFilters(events);
     initScrollButtons(); // Initialize scroll buttons
     
     // Then initialize map and timeline with filtered events
@@ -709,12 +711,13 @@ async function init() {
         const dayActive = dayFilters[event.date];
         
         // Check tag filter (if event has tags)
-        let tagActive = true;
+        /*let tagActive = true;
         if (event.tags && event.tags.length > 0) {
             tagActive = event.tags.some(tag => tagFilters[tag]);
-        }
+        }*/
         
-        return dayActive && tagActive;
+        //return dayActive && tagActive;
+        return dayActive;
     });
     
     initTimeline(filteredEvents);
