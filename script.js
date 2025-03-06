@@ -65,21 +65,27 @@ function initDayFilters(events) {
             savedFilters = JSON.parse(saved);
         }
     } catch (e) {
-        console.error('Error loading saved filters:', e);
+        console.error('Error loading saved day filters:', e);
     }
     
     // Create filter buttons
     const filterContainer = document.getElementById('day-filters');
     
+    // Clear any existing filters first
+    filterContainer.innerHTML = '';
+    
     uniqueDates.forEach(date => {
-        // Format date for display (e.g., "Mar 7")
-        const displayDate = new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
         // Create button
         const button = document.createElement('div');
         button.className = 'day-filter';
+        
+        // Format date for display (e.g., "Wed Mar 6")
+        const dateObj = new Date(date);
+        const displayDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         button.textContent = displayDate;
-        button.dataset.date = date;
+        
+        // Store the date as data attribute in the format used in the events data
+        button.dataset.day = date;
         
         // Set initial state (default to active if not in saved filters)
         const isActive = savedFilters[date] !== undefined ? savedFilters[date] : true;
@@ -177,33 +183,59 @@ function initDayFilters(events) {
 
 // Update visibility of events based on filters
 function updateVisibility(events) {
-    // Filter events by both day and tag
+    const now = new Date();
+    
+    // Step 1: Find which days have future events
+    const daysWithFutureEvents = {};
+    events.forEach(event => {
+        const eventEndTime = new Date(event.end);
+        if (eventEndTime > now) {
+            daysWithFutureEvents[event.date] = true;
+        }
+    });
+    
+    // Make sure we have at least some day buttons before trying to hide any
+    const dayButtons = document.querySelectorAll('.day-filter');
+    if (dayButtons.length > 0) {
+        // Step 2: Hide day filter buttons for days without future events
+        dayButtons.forEach(button => {
+            const day = button.dataset.day;
+            
+            if (day && !daysWithFutureEvents[day]) {
+                button.style.display = 'none';
+                dayFilters[day] = false;
+            } else if (day) {
+                button.style.display = '';
+            }
+        });
+        
+        // Step 3: Update button visibility after potentially hiding some buttons
+        if (typeof updateScrollButtonVisibility === 'function') {
+            updateScrollButtonVisibility();
+        }
+    }
+    
+    // Step 4: Filter events by day and remove past events
     const filteredEvents = events.filter(event => {
         // Check if day is active
         const dayActive = dayFilters[event.date];
         
-        // Check if at least one tag is active (if event has tags)
-        /*let tagActive = true;
-        if (event.tags && event.tags.length > 0) {
-            tagActive = event.tags.some(tag => tagFilters[tag]);
-        }*/
+        // Check if event is not in the past
+        const eventEndTime = new Date(event.end);
+        const eventNotPast = eventEndTime > now;
         
-        //return dayActive && tagActive;
-        return dayActive;
+        return dayActive && eventNotPast;
     });
     
-    // Update map markers
+    // Step 5: Update map markers
     Object.keys(markers).forEach(name => {
         const event = events.find(e => e.name === name);
         if (event) {
             const dayActive = dayFilters[event.date];
-            /*let tagActive = true;
-            if (event.tags && event.tags.length > 0) {
-                tagActive = event.tags.some(tag => tagFilters[tag]);
-            }*/
+            const eventEndTime = new Date(event.end);
+            const eventNotPast = eventEndTime > now;
             
-            //const isVisible = dayActive && tagActive;
-            const isVisible = dayActive;
+            const isVisible = dayActive && eventNotPast;
             const marker = markers[name];
             
             if (isVisible) {
@@ -218,11 +250,8 @@ function updateVisibility(events) {
         }
     });
     
-    // Redraw timeline with filtered events
-    // Clear existing timeline
+    // Step 6: Redraw timeline with filtered events
     d3.select('#gantt').html('');
-    
-    // Reinitialize timeline with filtered events
     initTimeline(filteredEvents);
 }
 
@@ -622,6 +651,40 @@ function initTimeline(events) {
     timelineContainer.on('scroll', function() {
         headerContainer.node().scrollLeft = this.scrollLeft;
     });
+
+    // Add current time indicator
+    function addCurrentTimeIndicator() {
+        // Remove any existing time indicator
+        svg.selectAll('.current-time-indicator').remove();
+        
+        const now = new Date();
+        const currentX = xScale(now);
+        
+        // Only show if current time is within the visible range
+        if (currentX >= 0 && currentX <= width) {
+            // Add a vertical line for current time
+            svg.append('line')
+                .attr('class', 'current-time-indicator')
+                .attr('x1', currentX)
+                .attr('y1', 0)
+                .attr('x2', currentX)
+                .attr('y2', height)
+                .attr('stroke', 'red')
+                .attr('stroke-width', 2)
+                .attr('stroke-dasharray', '5,5');
+        }
+    }
+    
+    // Initial call to add the indicator
+    addCurrentTimeIndicator();
+    
+    // Update the time indicator every minute
+    const timeUpdateInterval = setInterval(addCurrentTimeIndicator, 60000);
+    
+    // Clean up interval on page unload
+    window.addEventListener('beforeunload', () => {
+        clearInterval(timeUpdateInterval);
+    });
 }
 
 // Add scroll button functionality
@@ -705,22 +768,11 @@ async function init() {
     // Then initialize map and timeline with filtered events
     initMap(events);
     
-    // Get filtered events based on initial filter states
-    const filteredEvents = events.filter(event => {
-        // Check day filter
-        const dayActive = dayFilters[event.date];
-        
-        // Check tag filter (if event has tags)
-        /*let tagActive = true;
-        if (event.tags && event.tags.length > 0) {
-            tagActive = event.tags.some(tag => tagFilters[tag]);
-        }*/
-        
-        //return dayActive && tagActive;
-        return dayActive;
-    });
+    // Initial filtering including removing past events
+    updateVisibility(events);
     
-    initTimeline(filteredEvents);
+    // Set up a timer to periodically update the view to remove completed events and update day filters
+    setInterval(() => updateVisibility(events), 5 * 60000); // Update every 5 minutes
 }
 
 init(); 
