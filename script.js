@@ -215,6 +215,28 @@ function updateVisibility(events) {
         }
     }
     
+    // Check if all day filters are inactive
+    let allDaysInactive = true;
+    for (const day in dayFilters) {
+        if (dayFilters[day]) {
+            allDaysInactive = false;
+            break;
+        }
+    }
+    
+    // If all days are inactive, remove all markers
+    if (allDaysInactive) {
+        Object.values(markers).forEach(marker => {
+            if (map.hasLayer(marker)) {
+                map.removeLayer(marker);
+            }
+        });
+        
+        // Clear timeline and exit early
+        d3.select('#gantt').html('');
+        return;
+    }
+    
     // Step 4: Filter events by day and remove past events
     const filteredEvents = events.filter(event => {
         // Check if day is active
