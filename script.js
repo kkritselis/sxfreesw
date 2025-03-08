@@ -26,10 +26,14 @@ async function loadData() {
             endDateTime.setDate(endDateTime.getDate() + 1);
         }
 
+        // Create a unique ID for each event combining name and date
+        const uniqueId = `${name}_${date}`;
+
         // Create the event object
         const event = {
             name,
             date,
+            uniqueId, // Add the unique ID to the event object
             start: startDateTime,
             end: endDateTime,
             img: img || 'default.png',
@@ -331,7 +335,8 @@ function initMap(events) {
                 })
             }).bindPopup(createPopupContent(event));
             
-            markers[event.name] = marker;
+            // Use the unique ID instead of just the name
+            markers[event.uniqueId] = marker;
             
             // Only add to map if day is active
             if (dayFilters[event.date]) {
@@ -343,7 +348,7 @@ function initMap(events) {
                 // Highlight corresponding timeline bar
                 d3.selectAll('.event-group rect')
                     .style('opacity', 0.8);
-                d3.select(`rect[data-name="${event.name}"]`)
+                d3.select(`rect[data-uniqueid="${event.uniqueId}"]`)
                     .style('opacity', 1);
             });
         }
@@ -550,7 +555,8 @@ function initTimeline(events) {
         .attr('y', 0)
         .attr('width', d => Math.max(xScale(d.end) - xScale(d.start), 30))
         .attr('height', rowHeight * 0.8)
-        .attr('data-name', d => d.name) // Add data attribute for easier selection
+        .attr('data-name', d => d.name) // Keep this for backward compatibility
+        .attr('data-uniqueid', d => d.uniqueId) // Add data attribute for the unique ID
         .style('fill', (d) => getFestivalColor(d.originalIndex, events.length))
         .style('opacity', 0.8)
         .on('mouseover', function(event, d) {
@@ -582,10 +588,10 @@ function initTimeline(events) {
             // Close any open map popups
             map.closePopup();
 
-            // If there's a marker, show its popup
-            if (markers[d.name]) {
-                map.panTo(markers[d.name].getLatLng());
-                markers[d.name].openPopup();
+            // If there's a marker, show its popup - use the unique ID
+            if (markers[d.uniqueId]) {
+                map.panTo(markers[d.uniqueId].getLatLng());
+                markers[d.uniqueId].openPopup();
             } else {
                 // For events without location data, create a popup in the timeline
                 const popupContent = createPopupContent(d);
