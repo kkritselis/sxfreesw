@@ -1,0 +1,10 @@
+# robots.txt for sxfreesw.com
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://sxfreesw.com/sitemap.xml
+
+# Disallow any temporary or development files
+Disallow: /img/favicon-generator.html
+Disallow: /img/generate-favicon.js 

@@ -3,7 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Primary Meta Tags -->
     <title>sxFREEsw - A Festival of FREE Timeline & Map</title>
+    <meta name="title" content="sxFREEsw - A Festival of FREE - Timeline & Map">
+    <meta name="description" content="Discover free events during SXSW with our interactive timeline and map. Find, favorite, and plan your festival experience without spending a dime!">
+    <meta name="keywords" content="SXSW, free events, Austin events, SXSW free, festival map, event timeline, SXSW 2025, Austin Texas, tech events">
+    <meta name="author" content="sxFREEsw">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://sxfreesw.com/">
+    
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sxfreesw.com/">
+    <meta property="og:title" content="sxFREEsw - A Festival of FREE - Timeline & Map">
+    <meta property="og:description" content="Discover free events during SXSW with an interactive timeline and map. Find, favorite, and plan your festival experience!">
+    <meta property="og:image" content="https://sxfreesw.com/img/social-share.jpg">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:site_name" content="sxFREEsw">
+    
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sxfreesw.com/">
+    <meta name="twitter:title" content="sxFREEsw - A Festival of FREE - Timeline & Map">
+    <meta name="twitter:description" content="Discover free events during SXSW with an interactive timeline and map. Find, favorite, and plan your festival experience!">
+    <meta name="twitter:image" content="https://sxfreesw.com/img/social-share.jpg">
+    
+    <!-- Mobile App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="sxFREEsw">
+    <meta name="application-name" content="sxFREEsw">
+    <meta name="theme-color" content="#2A9D8F">
+    
+    <!-- Favicon (you'll need to create these files) -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png">
+    
+    <!-- Structured Data for Event Listing -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": "sxFREEsw - A Festival of FREE Events",
+        "description": "Discover free events during SXSW with our interactive timeline and map.",
+        "startDate": "2025-03-05",
+        "endDate": "2025-03-16",
+        "location": {
+            "@type": "Place",
+            "name": "Austin, Texas",
+            "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Austin",
+            "addressRegion": "TX",
+            "addressCountry": "US"
+            }
+        },
+        "image": "https://sxfreesw.com/img/social-share.jpg",
+        "url": "https://sxfreesw.com",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+        }
+    }
+    </script>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" href="styles.css">
     
@@ -23,7 +90,7 @@
         <button class="scroll-button scroll-right" id="day-scroll-right">→</button>
     </div>
     <div id="map">
-        <div class="map-disclaimer">This App is not affiliated with SXSW</div>
+        <div class="map-disclaimer">This App is not affiliated with SXSW - Created by Keith Kritselis</div>
     </div>
     
     <!-- Tag filter container temporarily removed
@@ -37,6 +104,25 @@
     <div id="timeline">
         <div class="timeline-container">
             <div id="gantt"></div>
+        </div>
+    </div>
+
+    <!-- Social Share Buttons -->
+    <div id="social-share-container">
+        <div class="share-title">Share sxFREEsw</div>
+        <div class="share-buttons">
+            <a href="#" class="share-button twitter-share" title="Share on Twitter">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>
+            </a>
+            <a href="#" class="share-button facebook-share" title="Share on Facebook">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+            </a>
+            <a href="#" class="share-button linkedin-share" title="Share on LinkedIn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+            </a>
+            <button class="share-button copy-link" title="Copy Link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            </button>
         </div>
     </div>
 

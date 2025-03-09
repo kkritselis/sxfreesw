@@ -3,6 +3,8 @@ let markers = {};
 let activePopup = null;
 let dayFilters = {}; // Store active state of day filters
 // let tagFilters = {}; // Store active state of tag filters
+let favoritesFilterActive = false; // Track if favorites filter is active
+let allEvents = []; // Store all events for filtering
 
 async function loadData() {
     const response = await fetch('data.tsv');
@@ -12,7 +14,7 @@ async function loadData() {
         .slice(1); // Skip header
     
     return rows.map(row => {
-        const [name, date, timeRange, lat, lon, loc, tags, rsvp, img, desc] = row.split('\t').map(field => field.trim());
+        const [name, date, timeRange, lat, lon, loc, tags, rsvp, img, desc, uid] = row.split('\t').map(field => field.trim());
         
         // Parse the date and time range
         const [startTime, endTime] = timeRange.split(' - ');
@@ -26,8 +28,8 @@ async function loadData() {
             endDateTime.setDate(endDateTime.getDate() + 1);
         }
 
-        // Create a unique ID for each event combining name and date
-        const uniqueId = `${name}_${date}`;
+        // Use the UID from the TSV if available, otherwise create a unique ID
+        const uniqueId = uid || `${name}_${date}`;
 
         // Create the event object
         const event = {
@@ -199,7 +201,7 @@ function updateVisibility(events) {
     });
     
     // Make sure we have at least some day buttons before trying to hide any
-    const dayButtons = document.querySelectorAll('.day-filter');
+    const dayButtons = document.querySelectorAll('.day-filter:not(#favorites-filter)');
     if (dayButtons.length > 0) {
         // Step 2: Hide day filter buttons for days without future events
         dayButtons.forEach(button => {
@@ -241,7 +243,10 @@ function updateVisibility(events) {
         return;
     }
     
-    // Step 4: Filter events by day and remove past events
+    // Get favorites from localStorage
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '{}');
+    
+    // Step 4: Filter events by day, favorites, and remove past events
     const filteredEvents = events.filter(event => {
         // Check if day is active
         const dayActive = dayFilters[event.date];
@@ -250,19 +255,29 @@ function updateVisibility(events) {
         const eventEndTime = new Date(event.end);
         const eventNotPast = eventEndTime > now;
         
-        return dayActive && eventNotPast;
+        // Check if event is a favorite (if favorites filter is active)
+        const isFavorite = favorites[event.uniqueId];
+        const passesFilter = !favoritesFilterActive || isFavorite;
+        
+        const isVisible = dayActive && eventNotPast && passesFilter;
+        
+        return isVisible;
     });
     
     // Step 5: Update map markers
-    Object.keys(markers).forEach(name => {
-        const event = events.find(e => e.name === name);
+    Object.keys(markers).forEach(uniqueId => {
+        const event = events.find(e => e.uniqueId === uniqueId);
         if (event) {
             const dayActive = dayFilters[event.date];
             const eventEndTime = new Date(event.end);
             const eventNotPast = eventEndTime > now;
             
-            const isVisible = dayActive && eventNotPast;
-            const marker = markers[name];
+            // Check if event is a favorite (if favorites filter is active)
+            const isFavorite = favorites[event.uniqueId];
+            const passesFilter = !favoritesFilterActive || isFavorite;
+            
+            const isVisible = dayActive && eventNotPast && passesFilter;
+            const marker = markers[uniqueId];
             
             if (isVisible) {
                 if (!map.hasLayer(marker)) {
@@ -278,7 +293,9 @@ function updateVisibility(events) {
     
     // Step 6: Redraw timeline with filtered events
     d3.select('#gantt').html('');
-    initTimeline(filteredEvents);
+    if (filteredEvents.length > 0) {
+        initTimeline(filteredEvents);
+    }
 }
 
 // Add this function to assign colors based on chronological order
@@ -362,13 +379,17 @@ function createPopupContent(event) {
         hour12: true 
     });
 
-    // Only create Google Maps link if location exists
     const locationHtml = event.loc ? 
         `<p><a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.loc)}" target="_blank" class="location-link">${event.loc}</a></p>` :
         '';
+    
+    // Check if this event is a favorite
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '{}');
+    const isFavorite = favorites[event.uniqueId] ? 'active' : '';
 
-    return `
+    const popupContent = `
         <div class="festival-popup">
+            <span class="heart-icon ${isFavorite}" data-uniqueid="${event.uniqueId}">♥</span>
             <img src="img/${event.img}" alt="${event.name}">
             <h3>${event.name}</h3>
             <p>${event.desc}</p>
@@ -378,6 +399,8 @@ function createPopupContent(event) {
             <a href="${event.rsvp}" target="_blank" class="rsvp-button">RSVP</a>
         </div>
     `;
+
+    return popupContent;
 }
 
 function initTimeline(events) {
@@ -395,7 +418,8 @@ function initTimeline(events) {
     
     const margin = {top: 20, right: 20, bottom: 30, left: 20}; // Reduced left margin since we don't need space for labels
     const hoursToShow = isMobile ? 8 : 24;
-    const pixelsPerHour = (containerWidth - margin.left - margin.right) / hoursToShow;
+    const basePixelsPerHour = (containerWidth - margin.left - margin.right) / hoursToShow;
+    const pixelsPerHour = isMobile ? basePixelsPerHour * 2 : basePixelsPerHour; // Double width on mobile
     
     // Get the full date range from all events
     const timeExtent = d3.extent(events.flatMap(d => [d.start, d.end]));
@@ -465,7 +489,7 @@ function initTimeline(events) {
     // Create SVG for the header
     const headerSvg = headerContainer.append('svg')
         .attr('width', width + margin.left + margin.right)
-        .attr('height', margin.top + 50) // Height for time labels
+        .attr('height', margin.top + 60) // Increase height to accommodate labels
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top - 10})`);
 
@@ -540,6 +564,23 @@ function initTimeline(events) {
         .style('stroke', 'var(--teal)')
         .style('stroke-width', 1)
         .style('opacity', 0.5);
+        
+    // Add hour shading to clearly show hour boundaries
+    const hourRects = svg.selectAll('rect.hour-background')
+        .data(xScale.ticks(d3.timeHour.every(1)))
+        .enter()
+        .append('rect')
+        .attr('class', 'hour-background')
+        .attr('x', d => xScale(d))
+        .attr('y', 0)
+        .attr('width', d => {
+            const hourEnd = new Date(d);
+            hourEnd.setHours(hourEnd.getHours() + 1);
+            return xScale(hourEnd) - xScale(d);
+        })
+        .attr('height', height)
+        .style('fill', (d, i) => i % 2 === 0 ? 'rgba(248, 248, 248, 0.5)' : 'rgba(240, 240, 240, 0.5)')
+        .style('stroke', 'none');
 
     // Create groups for each event bar
     const eventGroups = svg.selectAll('.event-group')
@@ -599,15 +640,52 @@ function initTimeline(events) {
                 // Get the position of the clicked bar
                 const rect = this.getBoundingClientRect();
                 
-                // Create and position the popup
+                // Calculate a visible position in the viewport
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                // Create the popup first to get its dimensions
                 const popup = d3.select('body')
                     .append('div')
                     .attr('class', 'timeline-popup')
                     .style('position', 'fixed')
-                    .style('left', `${rect.left + rect.width/2}px`)
-                    .style('top', `${rect.top - 10}px`)
-                    .style('transform', 'translate(-50%, -100%)')
+                    .style('left', `${viewportWidth / 2}px`)
+                    .style('opacity', '0') // Hide initially to measure size
                     .html(popupContent);
+                
+                // Add a close button to the popup
+                popup.append('div')
+                    .attr('class', 'close-button')
+                    .html('×')
+                    .on('click', () => {
+                        popup.remove();
+                        document.removeEventListener('click', closePopup);
+                    });
+                    
+                // Now get the popup dimensions
+                const popupHeight = popup.node().offsetHeight;
+                
+                // Decide best position - if clicked in lower half of screen, position popup above
+                // If clicked in upper half, position below
+                let popupTop;
+                let arrowClass = '';
+                
+                if (rect.top > viewportHeight / 2) {
+                    // Position above the click point if in bottom half of screen
+                    popupTop = Math.max(20, rect.top - popupHeight - 20);
+                    arrowClass = 'arrow-bottom';
+                } else {
+                    // Position below the click point if in top half of screen
+                    popupTop = Math.min(rect.bottom + 20, viewportHeight - popupHeight - 20);
+                    arrowClass = 'arrow-top';
+                }
+                
+                // Update the popup position and make it visible
+                popup
+                    .classed(arrowClass, true)
+                    .style('top', `${popupTop}px`)
+                    .style('transform', 'translateX(-50%)')
+                    .style('opacity', '1');
                 
                 // Add click handler to close popup when clicking outside
                 const closePopup = (e) => {
@@ -643,7 +721,8 @@ function initTimeline(events) {
     // Add time axis to the header
     const xAxis = d3.axisTop(xScale)
         .ticks(d3.timeHour.every(1))
-        .tickFormat(d3.timeFormat('%-I %p'));
+        .tickFormat(d3.timeFormat('%-I %p'))
+        .tickSize(10); // Increase tick size for better visibility
     
     // Add the axis
     const axis = headerSvg.append('g')
@@ -652,10 +731,20 @@ function initTimeline(events) {
 
     // Style the time tick labels
     axis.selectAll('.tick text')
-        .style('text-anchor', 'end')
-        .attr('dx', '-3.5em')
-        .attr('dy', '-1em')
-        .attr('transform', 'rotate(-45)');
+        .style('text-anchor', 'middle') // Center text under the tick
+        .attr('dy', '3.5em') // Position below the tick line instead of above
+        .style('font-weight', 'bold')
+        .style('font-size', isMobile ? '12px' : '10px');
+        
+    // Style the axis path and ticks
+    axis.select('.domain')
+        .style('stroke', 'var(--teal)')
+        .style('stroke-width', 2);
+        
+    axis.selectAll('.tick line')
+        .style('stroke', 'var(--teal)')
+        .style('stroke-width', 2)
+        .attr('y2', 10); // Extend tick lines downward for better visibility
 
     // Add date labels above specific hour ticks (6 AM, 12 PM, 6 PM)
     axis.selectAll('.tick')
@@ -670,6 +759,7 @@ function initTimeline(events) {
         .style('text-anchor', 'middle')
         .style('font-weight', 'bold')
         .style('fill', '#666')
+        .style('font-size', isMobile ? '14px' : '12px') // Make date labels more prominent
         .text(d => {
             const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             return `${date}`;
@@ -788,8 +878,15 @@ function initScrollButtons() {
 async function init() {
     const events = await loadData();
     
+    // Store all events globally for filtering
+    allEvents = events;
+    
     // Initialize filters first
     initDayFilters(events);
+    
+    // Create favorites filter after day filters
+    createFavoritesFilter();
+    
     //initTagFilters(events);
     initScrollButtons(); // Initialize scroll buttons
     
@@ -799,8 +896,249 @@ async function init() {
     // Initial filtering including removing past events
     updateVisibility(events);
     
+    // Check if we need to show the favorites filter
+    updateFavoritesFilter();
+    
+    // Add event listener for heart icon clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('heart-icon')) {
+            e.stopPropagation(); // Prevent popup from closing
+            e.target.classList.toggle('active');
+            
+            // Get the event ID from the data attribute
+            const eventId = e.target.getAttribute('data-uniqueid');
+            
+            // Save to localStorage
+            saveFavorite(eventId, e.target.classList.contains('active'));
+            
+            // Force update visibility to reflect changes immediately
+            updateVisibility(allEvents);
+        }
+    });
+    
+    // Initialize social share buttons
+    initSocialShare();
+    
     // Set up a timer to periodically update the view to remove completed events and update day filters
     setInterval(() => updateVisibility(events), 5 * 60000); // Update every 5 minutes
+}
+
+// Function to create the favorites filter
+function createFavoritesFilter() {
+    const filterContainer = document.getElementById('day-filters');
+    
+    // Check if the favorites filter already exists
+    if (document.getElementById('favorites-filter')) {
+        return;
+    }
+    
+    // Create favorites filter button
+    const favoritesFilter = document.createElement('div');
+    favoritesFilter.className = 'day-filter';
+    favoritesFilter.id = 'favorites-filter';
+    favoritesFilter.textContent = '❤ Favorites';
+    
+    // Initially hide the favorites filter if there are no favorites
+    const shouldShow = hasFavorites();
+    if (!shouldShow) {
+        favoritesFilter.style.display = 'none';
+    }
+    
+    // Add click handler
+    favoritesFilter.addEventListener('click', () => {
+        // Toggle active state
+        favoritesFilterActive = !favoritesFilterActive;
+        
+        if (favoritesFilterActive) {
+            favoritesFilter.classList.add('active');
+        } else {
+            favoritesFilter.classList.remove('active');
+        }
+        
+        // Update map and timeline
+        updateVisibility(allEvents);
+    });
+    
+    // Insert at the beginning of the filter container
+    filterContainer.insertBefore(favoritesFilter, filterContainer.firstChild);
+}
+
+// Function to save favorite status to localStorage
+function saveFavorite(eventId, isFavorite) {
+    // Get existing favorites from localStorage
+    let favorites = JSON.parse(localStorage.getItem('favorites') || '{}');
+    
+    // Update the favorite status
+    favorites[eventId] = isFavorite;
+    
+    // Save back to localStorage
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+    
+    // Check if we need to show or hide the favorites filter
+    updateFavoritesFilter();
+}
+
+// Function to check if there are any favorited events
+function hasFavorites() {
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '{}');
+    
+    // Check if there are any favorites with value true
+    const hasFavs = Object.entries(favorites).some(([key, value]) => {
+        return value === true;
+    });
+    
+    return hasFavs;
+}
+
+// Function to update the favorites filter visibility
+function updateFavoritesFilter() {
+    let favoritesFilter = document.getElementById('favorites-filter');
+    
+    // If the favorites filter doesn't exist yet, we need to create it
+    if (!favoritesFilter) {
+        // Only create it if there are favorites
+        if (hasFavorites()) {
+            createFavoritesFilter();
+            favoritesFilter = document.getElementById('favorites-filter');
+        } else {
+            // No favorites and no filter, nothing to do
+            return;
+        }
+    }
+    
+    if (hasFavorites()) {
+        favoritesFilter.style.display = '';
+    } else {
+        favoritesFilter.style.display = 'none';
+        // If the favorites filter was active, deactivate it
+        if (favoritesFilter.classList.contains('active')) {
+            favoritesFilter.classList.remove('active');
+            favoritesFilterActive = false;
+            updateVisibility(allEvents);
+        }
+    }
+}
+
+// Function to initialize social share buttons
+function initSocialShare() {
+    const pageUrl = encodeURIComponent('https://sxfreesw.com');
+    const pageTitle = encodeURIComponent('sxFREEsw - A Festival of FREE Timeline & Map');
+    const pageDescription = encodeURIComponent('Discover free events during SXSW with an interactive timeline and map. Find, favorite, and plan your festival experience!');
+    
+    // Twitter share
+    const twitterShare = document.querySelector('.twitter-share');
+    twitterShare.href = `https://twitter.com/intent/tweet?url=${pageUrl}&text=${pageTitle}`;
+    twitterShare.target = '_blank';
+    
+    // Facebook share
+    const facebookShare = document.querySelector('.facebook-share');
+    facebookShare.href = `https://www.facebook.com/sharer/sharer.php?u=${pageUrl}`;
+    facebookShare.target = '_blank';
+    
+    // LinkedIn share
+    const linkedinShare = document.querySelector('.linkedin-share');
+    linkedinShare.href = `https://www.linkedin.com/sharing/share-offsite/?url=${pageUrl}`;
+    linkedinShare.target = '_blank';
+    
+    // Copy link button
+    const copyLink = document.querySelector('.copy-link');
+    copyLink.addEventListener('click', function() {
+        // Create a temporary input element
+        const tempInput = document.createElement('input');
+        tempInput.value = 'https://sxfreesw.com';
+        document.body.appendChild(tempInput);
+        
+        // Select and copy the link
+        tempInput.select();
+        document.execCommand('copy');
+        
+        // Remove the temporary input
+        document.body.removeChild(tempInput);
+        
+        // Visual feedback
+        copyLink.classList.add('copied');
+        
+        // Create toast notification
+        let toast = document.querySelector('.toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = 'Link copied to clipboard!';
+            document.body.appendChild(toast);
+        }
+        
+        // Show the toast
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 10);
+        
+        // Hide the toast after 3 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+            copyLink.classList.remove('copied');
+        }, 3000);
+    });
+    
+    // Generate social share image if it doesn't exist
+    generateSocialShareImage();
+}
+
+// Function to generate a social share image
+function generateSocialShareImage() {
+    // Check if we're in a browser environment with canvas support
+    if (typeof document === 'undefined' || !document.createElement('canvas').getContext) {
+        return;
+    }
+    
+    // Create a canvas element
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 630;
+    const ctx = canvas.getContext('2d');
+    
+    // Set background color (teal from your CSS variables)
+    ctx.fillStyle = '#2A9D8F';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add a pattern or texture to the background
+    ctx.fillStyle = '#238A7E';
+    for (let i = 0; i < canvas.width; i += 20) {
+        for (let j = 0; j < canvas.height; j += 20) {
+            if ((i + j) % 40 === 0) {
+                ctx.fillRect(i, j, 10, 10);
+            }
+        }
+    }
+    
+    // Add title
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 80px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('sxFREEsw', canvas.width / 2, canvas.height / 2 - 50);
+    
+    // Add subtitle
+    ctx.font = '40px Arial, sans-serif';
+    ctx.fillText('A Festival of FREE Timeline & Map', canvas.width / 2, canvas.height / 2 + 30);
+    
+    // Add URL
+    ctx.font = '30px Arial, sans-serif';
+    ctx.fillText('sxfreesw.com', canvas.width / 2, canvas.height / 2 + 100);
+    
+    // Add a border
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 20;
+    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+    
+    // Convert canvas to data URL
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    
+    // In a production environment, you would save this image to your server
+    // This would typically be done server-side, not in the browser
+    
+    // For development, just log that the image was generated
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('Social share image generated. Use the favicon generator to create and download images.');
+    }
 }
 
 init(); 
