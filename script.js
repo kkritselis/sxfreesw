@@ -1025,6 +1025,18 @@ function initSocialShare() {
     const pageTitle = encodeURIComponent('sxFREEsw - A Festival of FREE Timeline & Map');
     const pageDescription = encodeURIComponent('Discover free events during SXSW with an interactive timeline and map. Find, favorite, and plan your festival experience!');
     
+    // Add click functionality to expand/collapse the container
+    const socialShareContainer = document.getElementById('social-share-container');
+    socialShareContainer.addEventListener('click', function(e) {
+        // Don't trigger expansion when clicking on share buttons
+        if (e.target.closest('.share-button') || e.target.closest('svg') || e.target.closest('path')) {
+            return;
+        }
+        
+        // Toggle expanded class
+        this.classList.toggle('expanded');
+    });
+    
     // Twitter share
     const twitterShare = document.querySelector('.twitter-share');
     twitterShare.href = `https://twitter.com/intent/tweet?url=${pageUrl}&text=${pageTitle}`;
